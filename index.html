@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="A private, client-side GamePigeon Word Hunt solver for 4x4 and 5x5 boards.">
+  <title>Word Hunt Solver</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2d;
+      --panel2: #18233a;
+      --line: #293651;
+      --text: #f2f5fb;
+      --muted: #9eabc2;
+      --accent: #8bafff;
+      --accent2: #b5caff;
+      --good: #65d6a4;
+      --warn: #ffc875;
+      --danger: #ff8a8a;
+      --tile: #202d47;
+      --tile-border: #3a4c6c;
+      --shadow: 0 12px 34px rgba(0,0,0,.24);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+      color: var(--text);
+      background: radial-gradient(ellipse at top, #172440 0, var(--bg) 54%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app { max-width: 760px; margin: 0 auto; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 4px 0 18px; }
+    .brand { display:flex; align-items:center; gap:11px; min-width:0; }
+    .logo {
+      width:43px; height:43px; flex:0 0 43px; display:grid; place-items:center;
+      border:1px solid #49638f; border-radius:14px; background:linear-gradient(145deg,#29436d,#172744);
+      color:#dce8ff; font-size:18px; font-weight:900; box-shadow:var(--shadow);
+    }
+    h1 { font-size:21px; line-height:1.1; letter-spacing:-.5px; margin:0; }
+    .subtitle { color:var(--muted); font-size:12px; margin-top:4px; }
+    .privacy { white-space:nowrap; font-size:11px; color:#a7e8ca; border:1px solid #285c4b; background:#102b25; padding:7px 9px; border-radius:999px; }
+    .panel { background:rgba(18,26,45,.94); border:1px solid var(--line); border-radius:20px; padding:16px; box-shadow:var(--shadow); margin-bottom:14px; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .section-head h2 { font-size:14px; margin:0; letter-spacing:.1px; }
+    .hint { font-size:11px; color:var(--muted); }
+    .size-switch { display:grid; grid-template-columns:1fr 1fr; background:#0b1222; padding:4px; border:1px solid var(--line); border-radius:12px; gap:4px; width:100%; margin-bottom:14px; }
+    .size-switch button {
+      border:0; color:var(--muted); background:transparent; border-radius:9px; min-height:38px;
+      font:600 13px -apple-system,BlinkMacSystemFont,sans-serif; cursor:pointer;
+    }
+    .size-switch button.active { color:#101a2d; background:var(--accent2); }
+    .board-wrap { display:flex; justify-content:center; padding:2px 0 8px; }
+    .board { display:grid; gap:7px; width:min(100%, 390px); aspect-ratio:1; }
+    .cell {
+      min-width:0; width:100%; height:100%; text-align:center; text-transform:uppercase;
+      color:var(--text); background:linear-gradient(155deg,#293a59,#1a2942);
+      border:1px solid var(--tile-border); border-radius:12px; outline:none;
+      font-size:clamp(19px, 6vw, 31px); font-weight:800; caret-color:var(--accent);
+      box-shadow:inset 0 1px rgba(255,255,255,.05); padding:0;
+    }
+    .board.five { gap:5px; }
+    .board.five .cell { border-radius:9px; font-size:clamp(16px,5vw,25px); }
+    .cell:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(139,175,255,.2); }
+    .cell.qu { color:#c4d5ff; font-size:clamp(14px,4.5vw,24px); }
+    .manual-entry { margin-top:7px; }
+    label { display:block; color:var(--muted); font-size:11px; margin-bottom:7px; }
+    textarea {
+      width:100%; min-height:54px; resize:vertical; color:var(--text); background:#0b1222;
+      border:1px solid var(--line); border-radius:11px; padding:11px 12px; font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;
+      outline:none;
+    }
+    textarea:focus { border-color:var(--accent); }
+    .button-row { display:grid; grid-template-columns:1fr auto; gap:9px; margin-top:12px; }
+    .primary, .secondary {
+      min-height:46px; border-radius:12px; font:700 14px -apple-system,BlinkMacSystemFont,sans-serif; cursor:pointer;
+    }
+    .primary { color:#101a2d; background:var(--accent2); border:1px solid #d2e0ff; }
+    .secondary { color:var(--text); background:var(--panel2); border:1px solid var(--line); padding:0 15px; }
+    button:active { transform:translateY(1px); }
+    .status { display:flex; align-items:flex-start; gap:8px; color:var(--muted); font-size:12px; line-height:1.45; margin-top:12px; }
+    .status .dot { width:7px; height:7px; flex:0 0 7px; margin-top:4px; border-radius:50%; background:var(--warn); }
+    .status.good .dot { background:var(--good); }
+    .status.error .dot { background:var(--danger); }
+    .status strong { color:var(--text); font-weight:650; }
+    .summary { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+    .metric { background:#0c1425; border:1px solid var(--line); border-radius:13px; padding:11px 9px; min-width:0; }
+    .metric .value { font-size:21px; font-weight:800; letter-spacing:-.5px; }
+    .metric .caption { color:var(--muted); font-size:10px; margin-top:3px; }
+    .result-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:9px; }
+    .result-toolbar h2 { margin:0; font-size:14px; }
+    .sort-note { color:var(--muted); font-size:10px; }
+    .groups { display:grid; gap:9px; }
+    details.group { border:1px solid var(--line); background:#0d1526; border-radius:13px; overflow:hidden; }
+    details.group summary { list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px; font-size:12px; font-weight:700; }
+    details.group summary::-webkit-details-marker { display:none; }
+    .group-label { display:flex; align-items:center; gap:8px; }
+    .length-chip { min-width:27px; text-align:center; border-radius:7px; padding:4px 6px; color:#dce7ff; background:#263858; }
+    .group-meta { color:var(--muted); font-weight:500; font-size:11px; }
+    .word-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:0 9px 9px; }
+    .word {
+      min-width:0; display:flex; flex-direction:column; gap:4px; text-align:left;
+      padding:9px 10px; border-radius:9px; border:1px solid #25344d; background:#141f33;
+      color:var(--text); cursor:pointer;
+    }
+    .word-top { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+    .word-name { font-weight:750; font-size:13px; letter-spacing:.35px; overflow-wrap:anywhere; }
+    .word-score { color:#a9c2ff; font-size:10px; font-weight:750; white-space:nowrap; }
+    .word-path { color:var(--muted); font:10px ui-monospace,SFMono-Regular,Menlo,monospace; display:none; }
+    .word.open .word-path { display:block; }
+    .empty { color:var(--muted); text-align:center; padding:22px 10px; font-size:13px; }
+    .foot { text-align:center; color:#7887a1; font-size:10px; line-height:1.5; padding:5px 15px 0; }
+    .small-action { background:none; border:0; color:var(--accent2); font:600 11px inherit; padding:5px; cursor:pointer; }
+    @media (min-width:620px) {
+      body { padding-top:30px; }
+      .panel { padding:20px; }
+      .word-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">WH</div>
+        <div><h1>Word Hunt Solver</h1><div class="subtitle">4×4 and 5×5 · On-device search</div></div>
+      </div>
+      <div class="privacy">● Local solving</div>
+    </header>
+
+    <section class="panel" aria-labelledby="board-title">
+      <div class="section-head"><h2 id="board-title">Your letter board</h2><span class="hint" id="tile-count">16 tiles</span></div>
+      <div class="size-switch" role="group" aria-label="Board size">
+        <button type="button" data-size="4" class="active" aria-pressed="true">4 × 4</button>
+        <button type="button" data-size="5" aria-pressed="false">5 × 5</button>
+      </div>
+      <div class="board-wrap"><div class="board" id="board" aria-label="Letter grid"></div></div>
+      <div class="hint" style="text-align:center;margin:0 0 10px">Enter one tile per square. A Q square is automatically treated as QU.</div>
+      <div class="manual-entry">
+        <label for="bulk">Paste a board (row-major order; commas or spaces are optional)</label>
+        <textarea id="bulk" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Example: T A R E S I N O L C D E P A T H"></textarea>
+      </div>
+      <div class="button-row">
+        <button type="button" class="primary" id="solve">Find words</button>
+        <button type="button" class="secondary" id="clear">Clear</button>
+      </div>
+      <div class="status" id="status" role="status" aria-live="polite"><span class="dot"></span><span>Loading dictionary…</span></div>
+    </section>
+
+    <section class="panel" aria-labelledby="results-title">
+      <div class="summary">
+        <div class="metric"><div class="value" id="word-count">—</div><div class="caption">Words found</div></div>
+        <div class="metric"><div class="value" id="total-score">—</div><div class="caption">Potential points</div></div>
+        <div class="metric"><div class="value" id="solve-time">—</div><div class="caption">Search time</div></div>
+      </div>
+      <div class="result-toolbar"><h2 id="results-title">Results</h2><span class="sort-note">Highest scoring first</span></div>
+      <div id="results" class="groups"><div class="empty">Enter a board and select Find words.</div></div>
+    </section>
+
+    <div class="foot">Independent tool; not affiliated with Apple or GamePigeon. Dictionary: ENABLE by Alan Beale and M. Cooper (public domain). The game’s internal word list may differ. Tap any result to reveal a tile-by-tile path.</div>
+  </main>
+
+  <script>
+  (() => {
+    "use strict";
+
+    // Small fallback only. For full coverage, place ENABLE's enable1.txt beside this file.
+    const STARTER_WORDS = `ace act add age ago aid aim air ale all and ant any ape apt arc are ark arm art ash ask ate aunt awe axe bad bag ban bar bat bay bed bee beg bet big bin bit bog boo bow box boy bud bug bun bus but buy cab can cap car cat cob cod cog con cop cot cow cry cub cue cup cut dab dad dam day den dew did die dig dim dip dog dot dry due dug ear eat eel egg ego elk elm end era eve eye fan far fat fed fee few fig fin fit fix flu fly fog for fox fry fun fur gag gap gas gem get gig gin got gum gun gut guy gym had ham has hat hay hen her hid him hip his hit hog hop hot how hub hue hug hum hut ice icy ill ink inn ion ire its ivy jam jar jaw jet job joy jug jut key kid kin kit lab lad lag lap law lay leg let lid lie lip lit log lot low mad man map mat maw may men met mid mix mob mop mud mug mum nab nag nap net new nib nil nip nod nor not now nut oak oar oat odd ode off oft oil old one opt orb ore our out owl own pad pal pan par pat paw pay pea pen per pet pie pig pin pit ply pod pop pot pro pry pub pug pun pup put rag ram ran rap rat raw ray red rib rid rig rim rip rob rod rot row rub rug run rut rye sad sag sap sat saw say sea see set she shy sin sip sir sit six ski sky sly sob son sop sow spa spy sty sub sue sum sun tab tag tan tap tar tea ten the thy tie tin tip toe ton too top toy try tub tug two use van vat vet via vie vim vow war was wax way web wed wee wet who why wig win wit woe won wow yam yap yes yet yin zip zoo act after age ago air all almost along also am among an angel anger angry animal answer apple arch area argue arise arm around art as at atom audio aunt away baby back bad bake ball bank bar base basic basket bat bath beach bean bear beat beauty bed begin bell below bend best better beyond bird birth black blade blame blank block blood blow blue board boat body bone book born bottle bottom bowl box brain break bread break breath brick bridge bright bring broad broke brown brush build bus business busy butter button buy cable call calm came camp can candle candy capital car card care careful carry case cat catch cause cell center cent certain chain chair chance change charge chart check cheese child choice choose circle city class clean clear climb clock close cloud coach coast coat code cold collect color come comfort common complete consider control cook cool copy corn corner correct cost could count country course court cover crack craft crash create credit crew cross crowd crown cry cup current cut daily dance danger dark data date daughter day dead deal dear death decade decide deep deer degree depend desk detail develop did differ different difficult dinner direction dirty discover discuss dish display distance doctor dog door double down draw dream dress drink drive drop dry during each early earth east easy eat edge effect effort egg eight either elbow electric elephant else empty end enemy energy enjoy enough enter equal escape even event ever every example eye face fact fall family famous far farm fast fat father favor fear feed feel feet fell felt few field fight figure fill film final find fine finger finish fire firm first fish fit five fix flag flat floor flower fly focus follow food foot for force forest forget form forward found four free fresh friend from front fruit full fun future game garden gas gate gave general get gift girl give glass go goal gold gone good government grab grade grain grand grass great green ground group grow guess guest guide gun guy habit hair half hall hand hang happen happy hard hat have he head health hear heart heat heavy help her here high hill him history hit hold hole home hope horse hot hour house how huge human hundred hungry hurry ice idea identify if imagine important improve in into iron island issue item jacket job join joy judge jump just keep key kid kind king kitchen knee knew knife know knowledge land language large last late laugh law lay lead learn least leave left leg length less let letter level life light like limit line list listen little live local long look lose lot love low luck made main make man manage many map mark market matter may meal mean measure meat meet member memory men mention message metal method middle might milk mind minute miss model modern moment money monkey month moon more morning most mother mountain move much music must name near need never new next nice night nine no noise none nor north nose not note nothing notice now number nurse object ocean of off offer office often old on once one only open opinion opposite or orange order other our out outside over own page paint paper parent part party pass past path pay peace pen people per perhaps period person phone phrase pick picture piece pig pilot pink place plan plant play please plenty point police poor popular position possible post power present press pretty price print private problem process produce product program promise proper protect public pull push put quality quarter question quick quiet quite race radio rain raise reach read ready real reason record red reduce region remain remember repeat reply report rest result return rich right ring rise river road rock role room round rule run safe said sail same sand sat save say school science score sea season second see seem seen self sell send sense sentence separate serious serve service set seven several share she ship shoe short should show side sign simple since sing sister sit six size skill sky sleep slow small smart smell smile snow so social soft some son song soon sort sound south space speak special speed spend sport spot stand star start state stay step still stone stop store story street strong student study subject such suddenly sugar summer sun support sure surprise swim system table take talk tall teacher team tell ten term test than thank that the their them then there these they thing think third this those though thought three through throw time tiny title to today together told too took top total touch town trade train travel tree true try turn twelve twenty twice two type under understand unit until up upon us use usually vacation value various very video view visit voice wait walk wall want war warm was wash watch water way we wear weather week well went were west what when where which while white who whole why wide wife wild will win wind window wish with woman wonder word work world would write wrong yard year yes yet you young your`;
+
+    const $ = (id) => document.getElementById(id);
+    const boardEl = $("board");
+    const bulkEl = $("bulk");
+    const statusEl = $("status");
+    let size = 4;
+    let cells = [];
+    let trie = null;
+    let dictionaryCount = 0;
+    let fullDictionary = false;
+    let lastResults = [];
+
+    function setStatus(message, kind = "") {
+      statusEl.className = "status" + (kind ? " " + kind : "");
+      statusEl.innerHTML = '<span class="dot"></span><span></span>';
+      statusEl.lastElementChild.textContent = message;
+    }
+
+    function makeBoard(nextSize, initial = []) {
+      size = nextSize;
+      cells = [];
+      boardEl.innerHTML = "";
+      boardEl.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
+      boardEl.classList.toggle("five", size === 5);
+      $("tile-count").textContent = `${size * size} tiles`;
+      document.querySelectorAll("[data-size]").forEach(button => {
+        const active = Number(button.dataset.size) === size;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      for (let i = 0; i < size * size; i++) {
+        const input = document.createElement("input");
+        input.className = "cell";
+        input.type = "text";
+        input.autocomplete = "off";
+        input.autocapitalize = "characters";
+        input.spellcheck = false;
+        input.maxLength = 2;
+        input.inputMode = "text";
+        input.setAttribute("aria-label", `Row ${Math.floor(i / size) + 1}, column ${(i % size) + 1}`);
+        input.value = initial[i] || "";
+        input.addEventListener("input", () => {
+          const cleaned = input.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
+          input.value = cleaned;
+          input.classList.toggle("qu", cleaned === "QU");
+          syncBulkFromCells();
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === "ArrowRight") {
+            event.preventDefault(); if (cells[i + 1]) cells[i + 1].focus();
+          }
+          if (event.key === "ArrowLeft") {
+            event.preventDefault(); if (cells[i - 1]) cells[i - 1].focus();
+          }
+        });
+        cells.push(input);
+        boardEl.appendChild(input);
+      }
+      syncBulkFromCells();
+    }
+
+    function syncBulkFromCells() {
+      const vals = cells.map(c => c.value.trim().toUpperCase()).filter(Boolean);
+      bulkEl.value = vals.length ? vals.join(" ") : "";
+    }
+
+    // Accept either compact row-major letters or separated tile tokens. QU is one tile.
+    function parseBoard(raw) {
+      const value = String(raw || "").trim().toUpperCase();
+      if (!value) return { error: "No board was supplied." };
+      let tokens;
+      if (/[\s,;|]/.test(value)) {
+        tokens = value.split(/[\s,;|]+/).filter(Boolean).map(t => t.replace(/[^A-Z]/g, ""));
+      } else {
+        const compact = value.replace(/[^A-Z]/g, "");
+        tokens = [...compact];
+      }
+      tokens = tokens.map(t => t === "QU" ? "Q" : t);
+      if (tokens.every(t => t.length === 1) && (tokens.length === 16 || tokens.length === 25)) {
+        return { tokens, size: Math.sqrt(tokens.length) };
+      }
+      return { error: `I found ${tokens.length} tile tokens. A valid board needs exactly 16 or 25. Check the OCR output and try again.` };
+    }
+
+    function boardToUrlTokens() {
+      return cells.map(c => c.value.trim().toUpperCase()).filter(Boolean);
+    }
+
+    function loadBoard(raw, autoSolve = false) {
+      const parsed = parseBoard(raw);
+      if (parsed.error) { setStatus(parsed.error, "error"); return false; }
+      makeBoard(parsed.size, parsed.tokens);
+      if (parsed.tokens.some(t => !/^[A-Z]$/.test(t))) {
+        setStatus("Board contains an invalid tile. Use A–Z, with QU entered as one tile.", "error");
+        return false;
+      }
+      setStatus(`Loaded ${parsed.tokens.length} tiles. Review the grid, then solve.`, "good");
+      if (autoSolve && trie) solve();
+      return true;
+    }
+
+    function addWord(root, word) {
+      let node = root;
+      for (const letter of word) {
+        if (!node.next[letter]) node.next[letter] = { next: Object.create(null), word: false };
+        node = node.next[letter];
+      }
+      node.word = true;
+    }
+
+    function buildTrie(words) {
+      const root = { next: Object.create(null), word: false };
+      const unique = new Set();
+      for (let entry of words) {
+        const word = String(entry).trim().toUpperCase();
+        if (word.length >= 3 && word.length <= 25 && /^[A-Z]+$/.test(word)) unique.add(word);
+      }
+      for (const word of unique) addWord(root, word);
+      dictionaryCount = unique.size;
+      return root;
+    }
+
+    async function loadDictionary() {
+      setStatus("Loading ENABLE dictionary…");
+      let words = STARTER_WORDS.split(/\s+/);
+      try {
+        const dictionaryURL = new URL("enable1.txt", document.baseURI);
+        const response = await fetch(dictionaryURL, { cache: "force-cache" });
+        if (response.ok) {
+          const text = await response.text();
+          const loaded = text.split(/\s+/).filter(Boolean);
+          if (loaded.length > 10000) {
+            words = loaded;
+            fullDictionary = true;
+          }
+        }
+      } catch (error) {
+        // A missing dictionary file is expected during first-time setup; use the fallback.
+      }
+      trie = buildTrie(words);
+      setStatus(fullDictionary
+        ? `Dictionary ready: ${dictionaryCount.toLocaleString()} ENABLE entries. Search runs entirely in this browser.`
+        : `Starter dictionary loaded (${dictionaryCount} words). Add enable1.txt beside index.html for full ENABLE coverage.`,
+        fullDictionary ? "good" : "");
+      const param = new URLSearchParams(location.search).get("board");
+      if (param) {
+        const valid = loadBoard(param, false);
+        if (valid) solve();
+      }
+    }
+
+    function scoreForLength(length) {
+      if (length < 3) return 0;
+      if (length === 3) return 100;
+      if (length === 4) return 400;
+      if (length === 5) return 800;
+      return 1400 + (length - 6) * 400;
+    }
+
+    function solve() {
+      if (!trie) { setStatus("The dictionary is still loading. Try again in a moment."); return; }
+      const tokens = cells.map(c => c.value.trim().toUpperCase());
+      if (tokens.some(t => !/^(?:[A-Z]|QU)$/.test(t))) {
+        setStatus("Fill every tile with one letter. Enter QU as a single tile.", "error");
+        return;
+      }
+      const board = tokens.map(t => t === "QU" ? "Q" : t);
+      const count = board.length;
+      const n = Math.sqrt(count);
+      if (n !== 4 && n !== 5) { setStatus("Choose a 4×4 or 5×5 board.", "error"); return; }
+
+      const neighbors = Array.from({ length: count }, (_, index) => {
+        const row = Math.floor(index / n), col = index % n, out = [];
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          const r = row + dr, c = col + dc;
+          if (r >= 0 && r < n && c >= 0 && c < n) out.push(r * n + c);
+        }
+        return out;
+      });
+
+      const found = new Map();
+      const walk = (index, node, visited, path) => {
+        const tile = board[index];
+        let next = node.next[tile];
+        if (!next) return;
+        // Standard Boggle-style Q tile: a single Q square contributes the letters QU.
+        if (tile === "Q") {
+          next = next.next.U;
+          if (!next) return;
+        }
+        const wordLength = path.wordLength + (tile === "Q" ? 2 : 1);
+        const word = path.word + (tile === "Q" ? "QU" : tile);
+        const nextPath = path.path.concat(index);
+        if (next.word && wordLength >= 3 && !found.has(word)) found.set(word, nextPath);
+        const nextVisited = visited | (1 << index);
+        for (const neighbor of neighbors[index]) {
+          const bit = 1 << neighbor;
+          if ((nextVisited & bit) === 0) walk(neighbor, next, nextVisited, { word, wordLength, path: nextPath });
+        }
+      };
+
+      const start = performance.now();
+      for (let i = 0; i < count; i++) {
+        walk(i, trie, 0, { word: "", wordLength: 0, path: [] });
+      }
+      const elapsed = performance.now() - start;
+      const results = [...found.entries()].map(([word, path]) => ({
+        word, path,
+        points: scoreForLength(word.length)
+      }));
+      results.sort((a, b) => b.points - a.points || b.word.length - a.word.length || a.word.localeCompare(b.word));
+      lastResults = results;
+      renderResults(results, board, n, elapsed);
+      setStatus(`Finished: ${results.length.toLocaleString()} words found on a ${n}×${n} board.`, "good");
+    }
+
+    function renderResults(results, board, n, elapsed) {
+      const total = results.reduce((sum, item) => sum + item.points, 0);
+      $("word-count").textContent = results.length.toLocaleString();
+      $("total-score").textContent = total.toLocaleString();
+      $("solve-time").textContent = `${elapsed.toFixed(1)} ms`;
+      const container = $("results");
+      container.innerHTML = "";
+      if (!results.length) {
+        container.innerHTML = '<div class="empty">No words found. Check the letters or add the full dictionary file.</div>';
+        return;
+      }
+      const groups = new Map();
+      for (const item of results) {
+        const length = item.word.length;
+        if (!groups.has(length)) groups.set(length, []);
+        groups.get(length).push(item);
+      }
+      for (const [length, items] of [...groups.entries()].sort((a, b) => b[0] - a[0])) {
+        const details = document.createElement("details");
+        details.className = "group";
+        details.open = length >= Math.max(3, results[0].word.length - 1);
+        const sum = items.reduce((value, item) => value + item.points, 0);
+        const summary = document.createElement("summary");
+        summary.innerHTML = `<span class="group-label"><span class="length-chip">${length}</span>${length}-letter words</span><span class="group-meta">${items.length} words · ${sum.toLocaleString()} pts</span>`;
+        details.appendChild(summary);
+        const list = document.createElement("div");
+        list.className = "word-list";
+        // Keep the page responsive on unusually large 5×5 result sets; highest scores are first.
+        const visible = items.slice(0, 500);
+        for (const item of visible) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "word";
+          const coordinates = item.path.map((index, step) => `${Math.floor(index / n) + 1},${(index % n) + 1}`);
+          button.innerHTML = `<span class="word-top"><span class="word-name"></span><span class="word-score">${item.points.toLocaleString()} pts</span></span><span class="word-path"></span>`;
+          button.querySelector(".word-name").textContent = item.word;
+          button.querySelector(".word-path").textContent = coordinates.join(" → ");
+          button.addEventListener("click", () => button.classList.toggle("open"));
+          list.appendChild(button);
+        }
+        details.appendChild(list);
+        if (items.length > visible.length) {
+          const note = document.createElement("div");
+          note.className = "hint";
+          note.style.padding = "0 12px 12px";
+          note.textContent = `Showing the top ${visible.length} of ${items.length} words in this length group.`;
+          details.appendChild(note);
+        }
+        container.appendChild(details);
+      }
+    }
+
+    document.querySelectorAll("[data-size]").forEach(button => {
+      button.addEventListener("click", () => makeBoard(Number(button.dataset.size)));
+    });
+    $("solve").addEventListener("click", () => {
+      // If a pasted board is present, use it; otherwise read the individual tile fields.
+      if (bulkEl.value.trim()) {
+        const parsed = parseBoard(bulkEl.value);
+        if (parsed.error) { setStatus(parsed.error, "error"); return; }
+        makeBoard(parsed.size, parsed.tokens);
+      }
+      solve();
+    });
+    $("clear").addEventListener("click", () => {
+      bulkEl.value = "";
+      makeBoard(size);
+      $("word-count").textContent = "—";
+      $("total-score").textContent = "—";
+      $("solve-time").textContent = "—";
+      $("results").innerHTML = '<div class="empty">Enter a board and select Find words.</div>';
+      setStatus(fullDictionary ? "Dictionary ready." : "Starter dictionary ready; add enable1.txt for full coverage.");
+    });
+    bulkEl.addEventListener("input", () => {
+      const value = bulkEl.value.trim();
+      if (!value) return;
+      const parsed = parseBoard(value);
+      if (!parsed.error) {
+        makeBoard(parsed.size, parsed.tokens);
+        // Keep the pasted value visible for convenient editing.
+        bulkEl.value = value;
+      }
+    });
+
+    makeBoard(4);
+    loadDictionary();
+  })();
+  </script>
+</body>
+</html>
